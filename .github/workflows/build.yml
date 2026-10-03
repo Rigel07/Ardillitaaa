@@ -1,0 +1,62 @@
+```yaml
+name: Build Ardillita
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract ZIP
+        shell: bash
+        run: |
+          set -e
+          ZIP=$(find . -maxdepth 2 -type f -iname "*.zip" | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: No se encontró ningún ZIP"
+            exit 1
+          fi
+          echo "ZIP encontrado: $ZIP"
+          mkdir -p extracted
+          unzip -o "$ZIP" -d extracted
+
+      - name: Find Gradle project
+        shell: bash
+        run: |
+          set -e
+          FILE=$(find extracted -type f -name "build.gradle" | head -n 1)
+          if [ -z "$FILE" ]; then
+            echo "ERROR: No se encontró build.gradle"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$FILE")
+          echo "Proyecto encontrado: $PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Setup Gradle 8.8
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.8'
+
+      - name: Build Mod
+        shell: bash
+        run: |
+          set -e
+          cd "$PROJECT_DIR"
+          gradle --version
+          gradle build --no-daemon
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ardillita-Forge-1.20.1
+          path: "extracted/**/build/libs/*.jar"
+          if-no-files-found: error
+```
